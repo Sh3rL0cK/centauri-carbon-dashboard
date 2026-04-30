@@ -1814,17 +1814,40 @@ function selectFile(fp) {
 //  UPLOAD
 // ═══════════════════════════════════════════════
 
-// crypto.subtle only works in secure contexts (HTTPS).
-// Fall back to FNV-1a on plain HTTP — printer doesn't validate the hash strictly.
-async function fileHash(bytes) {
-  if (window.crypto?.subtle) {
-    const buf = await crypto.subtle.digest('SHA-256', bytes);
-    return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+// Pure-JS MD5 — works in all contexts (HTTP or HTTPS), matches what the printer validates.
+function fileHash(bytes) {
+  function rol(n,x){return(x<<n)|(x>>>32-n)}
+  function add(a,b){return(a+b)&0xffffffff}
+  const T=new Uint32Array(64);
+  for(let i=0;i<64;i++) T[i]=Math.floor(Math.abs(Math.sin(i+1))*0x100000000)>>>0;
+  const S=[7,12,17,22,7,12,17,22,7,12,17,22,7,12,17,22,
+           5,9,14,20,5,9,14,20,5,9,14,20,5,9,14,20,
+           4,11,16,23,4,11,16,23,4,11,16,23,4,11,16,23,
+           6,10,15,21,6,10,15,21,6,10,15,21,6,10,15,21];
+  const src=new Uint8Array(bytes),len=src.length;
+  const pad=new Uint8Array(len+1+((55-len%64+64)%64)+8);
+  pad.set(src); pad[len]=0x80;
+  new DataView(pad.buffer).setUint32(pad.length-8,(len*8)>>>0,true);
+  let h0=0x67452301,h1=0xefcdab89,h2=0x98badcfe,h3=0x10325476;
+  for(let i=0;i<pad.length;i+=64){
+    const dv=new DataView(pad.buffer,i,64),W=Array.from({length:16},(_,j)=>dv.getUint32(j*4,true));
+    let a=h0,b=h1,c=h2,d=h3;
+    for(let j=0;j<64;j++){
+      let f,g;
+      if(j<16){f=(b&c)|(~b&d);g=j}
+      else if(j<32){f=(d&b)|(~d&c);g=(5*j+1)%16}
+      else if(j<48){f=b^c^d;g=(3*j+5)%16}
+      else{f=c^(b|~d);g=(7*j)%16}
+      const t=add(add(add(a,f),T[j]),W[g]);
+      a=d;d=c;c=b;b=add(b,rol(S[j],t));
+    }
+    h0=add(h0,a);h1=add(h1,b);h2=add(h2,c);h3=add(h3,d);
   }
-  const arr = new Uint8Array(bytes);
-  let h = 2166136261;
-  for (let i = 0; i < arr.length; i++) h = Math.imul(h ^ arr[i], 16777619) >>> 0;
-  return h.toString(16).padStart(8,'0').repeat(4);
+  return [h0,h1,h2,h3].map(h=>{
+    const tmp=new Uint8Array(4);
+    new DataView(tmp.buffer).setUint32(0,h,true);
+    return Array.from(tmp).map(x=>x.toString(16).padStart(2,'0')).join('');
+  }).join('');
 }
 
 async function uploadFile(input) {

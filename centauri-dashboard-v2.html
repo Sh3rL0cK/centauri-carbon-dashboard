@@ -1,0 +1,2124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Centauri Carbon — Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:       #0f1117;
+  --surface:  #171b24;
+  --card:     #1c2130;
+  --border:   #252d3d;
+  --border2:  #2e3a4e;
+  --accent:   #4f9eff;
+  --accent2:  #ff7043;
+  --green:    #4caf7d;
+  --warn:     #f5a623;
+  --danger:   #ef4444;
+  --purple:   #a78bfa;
+  --text:     #dde4f0;
+  --muted:    #5a6a82;
+  --mono:     'DM Mono', monospace;
+  --sans:     'Outfit', sans-serif;
+  --radius:   8px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: var(--sans);
+  background: var(--bg);
+  color: var(--text);
+  height: 100vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── TOPBAR ── */
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 0 20px;
+  height: 52px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  z-index: 10;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 700;
+  font-size: 0.95rem;
+  letter-spacing: 0.05em;
+  color: #fff;
+}
+.logo-dot {
+  width: 10px; height: 10px;
+  background: var(--accent);
+  border-radius: 50%;
+  box-shadow: 0 0 8px var(--accent);
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+@keyframes pulse-dot { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.6;transform:scale(0.8)} }
+
+.topbar-center {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.state-badge {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  font-weight: 500;
+  padding: 4px 12px;
+  border-radius: 20px;
+  border: 1px solid var(--border2);
+  letter-spacing: 0.08em;
+  background: var(--card);
+  color: var(--muted);
+  transition: all 0.3s;
+}
+.state-badge.printing { background: rgba(76,175,125,0.15); border-color: var(--green); color: var(--green); }
+.state-badge.paused   { background: rgba(245,166,35,0.15);  border-color: var(--warn);  color: var(--warn); }
+.state-badge.error    { background: rgba(239,68,68,0.15);   border-color: var(--danger);color: var(--danger); }
+
+.filename-display {
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  color: var(--muted);
+  max-width: 300px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.topbar-right { display: flex; align-items: center; gap: 10px; }
+
+/* ── MAIN LAYOUT ── */
+.dashboard {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 280px 1fr 300px;
+  grid-template-rows: 1fr;
+  gap: 0;
+  overflow: hidden;
+  min-height: 0;
+}
+
+/* ── LEFT COLUMN ── */
+.col-left {
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  overflow-x: hidden;
+  min-height: 0;
+  padding: 14px;
+  gap: 10px;
+}
+
+/* ── CENTER COLUMN ── */
+.col-center {
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* drag divider */
+.drag-divider {
+  height: 6px;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  cursor: ns-resize;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s;
+  user-select: none;
+}
+.drag-divider:hover, .drag-divider.dragging { background: var(--border2); }
+.drag-divider::after {
+  content: '';
+  width: 32px; height: 2px;
+  background: var(--border2);
+  border-radius: 1px;
+}
+
+/* ── RIGHT COLUMN ── */
+.col-right {
+  background: var(--surface);
+  border-left: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* ── CARDS ── */
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+}
+.card-title {
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.card-body { padding: 14px; }
+
+/* ── PROGRESS CARD ── */
+.progress-card .card-body {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.ring-wrap { position: relative; flex-shrink: 0; }
+.progress-ring { transform: rotate(-90deg); filter: drop-shadow(0 0 4px rgba(79,158,255,0.4)); }
+.ring-bg { stroke: var(--border2); }
+.ring-fg { stroke: var(--accent); stroke-linecap: round; transition: stroke-dashoffset 1.5s ease; }
+.ring-center {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+}
+.ring-pct { font-size: 1.4rem; font-weight: 700; line-height: 1; color: #fff; }
+.ring-sub { font-size: 0.55rem; color: var(--muted); letter-spacing: 0.1em; margin-top: 2px; font-family: var(--mono); }
+
+.progress-meta { flex: 1; min-width: 0; }
+.meta-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 6px;
+}
+.meta-label { font-size: 0.65rem; color: var(--muted); }
+.meta-value { font-family: var(--mono); font-size: 0.78rem; font-weight: 500; }
+.meta-value.accent { color: var(--accent); }
+
+.progress-bar-wrap {
+  margin-top: 10px;
+  height: 3px;
+  background: var(--border2);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.progress-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), #7bc8ff);
+  border-radius: 2px;
+  transition: width 1.5s ease;
+}
+
+/* ── TEMP CARD ── */
+.temp-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+.temp-block {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  transition: background 0.15s;
+  flex-shrink: 0;
+}
+.temp-block:last-child { border-bottom: none; }
+.temp-block:hover { background: rgba(255,255,255,0.02); }
+.temp-block .tb-label {
+  font-size: 0.58rem; color: var(--muted);
+  letter-spacing: 0.08em; text-transform: uppercase;
+  width: 52px; flex-shrink: 0;
+}
+.temp-block .tb-current {
+  font-family: var(--mono); font-size: 1rem;
+  font-weight: 500; line-height: 1; width: 54px; flex-shrink: 0;
+}
+.temp-block .tb-target {
+  font-family: var(--mono); font-size: 0.62rem;
+  color: var(--muted); flex-shrink: 0; width: 60px;
+}
+.temp-block .tb-bar {
+  flex: 1; height: 3px; border-radius: 2px;
+  background: var(--border2); overflow: hidden;
+}
+.temp-block .tb-fill { height: 100%; border-radius: 2px; transition: width 1s ease; }
+.tb-fill.nozzle { background: linear-gradient(90deg, var(--warn), var(--accent2)); }
+.tb-fill.bed    { background: linear-gradient(90deg, #60a5fa, var(--accent)); }
+.tb-fill.box    { background: linear-gradient(90deg, var(--purple), #c084fc); }
+.temp-block.hot .tb-current { color: var(--accent2); }
+.temp-block.warm .tb-current { color: var(--warn); }
+.temp-block.cool .tb-current { color: var(--accent); }
+
+/* ── STAT GRID ── */
+.stat-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1px;
+  background: var(--border);
+}
+.stat-cell {
+  background: var(--card);
+  padding: 10px 12px;
+}
+.stat-cell .sc-label { font-size: 0.58rem; color: var(--muted); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 3px; }
+.stat-cell .sc-value { font-family: var(--mono); font-size: 0.82rem; font-weight: 500; }
+.sc-value.good   { color: var(--green); }
+.sc-value.warn   { color: var(--warn); }
+.sc-value.hot    { color: var(--accent2); }
+.sc-value.accent { color: var(--accent); }
+
+/* ── MOTOR ROW ── */
+.motor-row {
+  display: flex;
+  gap: 4px;
+  padding: 10px;
+}
+.motor-chip {
+  flex: 1;
+  text-align: center;
+  padding: 5px 4px;
+  border-radius: 4px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  font-family: var(--mono);
+  font-size: 0.58rem;
+}
+.motor-chip .mc-axis { color: var(--muted); margin-bottom: 2px; letter-spacing: 0.05em; }
+.motor-chip .mc-status { font-size: 0.65rem; }
+.motor-chip.ok { border-color: rgba(76,175,125,0.3); }
+.motor-chip.ok .mc-status { color: var(--green); }
+.motor-chip.fault { border-color: rgba(239,68,68,0.3); }
+.motor-chip.fault .mc-status { color: var(--danger); }
+
+/* ── CAMERA ── */
+.camera-section {
+  position: relative;
+  flex-shrink: 0;
+  background: #000;
+  overflow: hidden;
+  cursor: pointer;
+}
+/* Default height - controlled by JS drag */
+.camera-section { height: 340px; flex-shrink: 0; }
+
+.camera-section img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: none;
+}
+.cam-placeholder {
+  width: 100%; height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+  gap: 8px;
+  font-size: 0.75rem;
+  font-family: var(--mono);
+  letter-spacing: 0.08em;
+}
+.cam-placeholder svg { opacity: 0.2; }
+
+.cam-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.cam-corners::before, .cam-corners::after {
+  content: '';
+  position: absolute;
+  width: 20px; height: 20px;
+  border: 1.5px solid rgba(79,158,255,0.5);
+}
+.cam-corners::before { top: 10px; left: 10px; border-right: none; border-bottom: none; }
+.cam-corners::after  { bottom: 10px; right: 10px; border-left: none; border-top: none; }
+
+.cam-badge {
+  position: absolute;
+  top: 10px; left: 10px;
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  color: var(--accent);
+  letter-spacing: 0.05em;
+  background: rgba(0,0,0,0.6);
+  padding: 2px 8px;
+  border-radius: 3px;
+}
+
+.cam-fullscreen-btn {
+  position: absolute;
+  bottom: 10px; right: 10px;
+  background: rgba(0,0,0,0.6);
+  border: 1px solid rgba(255,255,255,0.2);
+  color: rgba(255,255,255,0.7);
+  width: 28px; height: 28px;
+  border-radius: 4px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  font-size: 0.8rem;
+  transition: all 0.15s;
+  pointer-events: all;
+}
+.cam-fullscreen-btn:hover { background: rgba(79,158,255,0.3); border-color: var(--accent); color: #fff; }
+
+/* FULLSCREEN camera */
+.camera-section.fullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  height: 100vh !important;
+  width: 100vw;
+}
+.camera-section.fullscreen img { object-fit: contain; }
+
+/* ── CONTROLS SECTION ── */
+.controls-section {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.btn-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  padding: 12px;
+}
+
+.action-btn {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  padding: 10px 8px;
+  font-family: var(--sans);
+  font-size: 0.72rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  letter-spacing: 0.02em;
+}
+.action-btn .btn-icon { font-size: 1rem; line-height: 1; }
+.action-btn:hover { background: rgba(79,158,255,0.08); border-color: var(--accent); color: var(--accent); }
+.action-btn.active { background: rgba(79,158,255,0.15); border-color: var(--accent); color: var(--accent); }
+.action-btn.danger:hover { background: rgba(239,68,68,0.1); border-color: var(--danger); color: var(--danger); }
+.action-btn.success:hover { background: rgba(76,175,125,0.1); border-color: var(--green); color: var(--green); }
+
+/* ── SLIDERS ── */
+.sliders-section {
+  padding: 0 12px 12px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.slider-block label {
+  font-size: 0.6rem;
+  color: var(--muted);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+.slider-block label span { color: var(--accent); font-family: var(--mono); }
+input[type=range] {
+  width: 100%;
+  -webkit-appearance: none;
+  height: 3px;
+  background: var(--border2);
+  outline: none;
+  border-radius: 2px;
+  cursor: pointer;
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px; height: 14px;
+  background: var(--accent);
+  border-radius: 50%;
+  box-shadow: 0 0 6px rgba(79,158,255,0.5);
+}
+
+/* ── RIGHT COLUMN TABS ── */
+.rtabs {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.rtab {
+  flex: 1;
+  padding: 13px 8px;
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  text-align: center;
+  cursor: pointer;
+  color: var(--muted);
+  border: none;
+  background: none;
+  border-bottom: 2px solid transparent;
+  transition: all 0.15s;
+  font-family: var(--sans);
+}
+.rtab.active { color: var(--accent); border-bottom-color: var(--accent); }
+.rtab:hover:not(.active) { color: var(--text); }
+
+.rpanel { display: none; flex: 1; flex-direction: column; min-height: 0; overflow: hidden; }
+.rpanel.active { display: flex; }
+
+/* LOG */
+#log-output {
+  flex: 1; min-height: 0;
+  padding: 10px;
+  font-family: var(--mono);
+  font-size: 0.67rem;
+  line-height: 1.7;
+  overflow-y: auto;
+  overflow-x: hidden;
+  color: var(--text);
+}
+.log-entry { word-break: break-all; white-space: pre-wrap; margin-bottom: 1px; }
+.log-entry .ts { color: var(--border2); margin-right: 6px; }
+.log-entry.send .msg { color: var(--accent); }
+.log-entry.recv .msg { color: rgba(76,175,125,0.8); }
+.log-entry.error .msg { color: var(--danger); }
+.log-entry.warn .msg { color: var(--warn); }
+.log-entry.info .msg { color: var(--muted); }
+
+.log-footer {
+  padding: 8px 10px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-shrink: 0;
+}
+.log-footer label { font-size: 0.6rem; color: var(--muted); display: flex; align-items: center; gap: 4px; cursor: pointer; margin-left: auto; }
+
+#cmd-row {
+  padding: 8px 10px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+#cmd-input {
+  flex: 1;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  padding: 6px 10px;
+  outline: none;
+}
+#cmd-input:focus { border-color: var(--accent); }
+#cmd-input::placeholder { color: var(--border2); }
+
+/* FILES */
+.file-list { flex: 1; overflow-y: auto; min-height: 0; }
+.file-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  transition: background 0.12s;
+}
+.file-item:hover { background: rgba(79,158,255,0.05); }
+.file-item.selected { background: rgba(79,158,255,0.1); border-left: 2px solid var(--accent); }
+.file-icon {
+  width: 28px; height: 28px;
+  background: rgba(79,158,255,0.1);
+  border: 1px solid rgba(79,158,255,0.2);
+  border-radius: 4px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.5rem;
+  font-family: var(--mono);
+  color: var(--accent);
+  flex-shrink: 0;
+}
+.file-meta { flex: 1; min-width: 0; }
+.file-name { font-size: 0.75rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 2px; }
+.file-size { font-family: var(--mono); font-size: 0.6rem; color: var(--muted); }
+.file-print-btn {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--muted);
+  padding: 4px 8px;
+  font-size: 0.6rem;
+  cursor: pointer;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+.file-print-btn:hover { border-color: var(--green); color: var(--green); }
+
+.file-footer {
+  padding: 8px 10px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+/* INFO */
+.info-body { padding: 12px; flex: 1; overflow-y: auto; }
+.info-kv {
+  display: flex;
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.75rem;
+}
+.info-kv:last-child { border-bottom: none; }
+.ik { color: var(--muted); font-size: 0.68rem; width: 100px; flex-shrink: 0; }
+.iv { font-family: var(--mono); font-size: 0.72rem; word-break: break-all; }
+
+/* ── BUTTONS ── */
+.btn {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 5px;
+  padding: 7px 14px;
+  font-family: var(--sans);
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+  letter-spacing: 0.03em;
+}
+.btn:hover { filter: brightness(1.1); }
+.btn.ghost { background: transparent; color: var(--muted); border: 1px solid var(--border); }
+.btn.ghost:hover { border-color: var(--accent); color: var(--accent); background: transparent; }
+.btn.sm { padding: 5px 10px; font-size: 0.65rem; }
+
+/* ── CONNECT OVERLAY ── */
+#connect-overlay {
+  position: fixed; inset: 0;
+  background: rgba(15,17,23,0.96);
+  backdrop-filter: blur(16px);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 500;
+  transition: opacity 0.3s;
+}
+#connect-overlay.hidden { opacity: 0; pointer-events: none; }
+
+.connect-card {
+  background: var(--card);
+  border: 1px solid var(--border2);
+  border-radius: 12px;
+  padding: 32px;
+  width: min(420px, 90vw);
+}
+.connect-card h2 {
+  font-size: 1.2rem;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+.connect-card h2 span { color: var(--accent); }
+.connect-card p { font-size: 0.8rem; color: var(--muted); margin-bottom: 24px; line-height: 1.6; }
+
+.field { margin-bottom: 14px; }
+.field label { display: block; font-size: 0.65rem; color: var(--muted); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 6px; }
+.field input {
+  width: 100%;
+  background: var(--surface);
+  border: 1px solid var(--border2);
+  border-radius: 6px;
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 0.9rem;
+  padding: 10px 14px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.field input:focus { border-color: var(--accent); }
+.field input::placeholder { color: var(--muted); }
+
+.connect-actions { display: flex; gap: 8px; margin-top: 6px; }
+
+#discovered-list { margin-top: 10px; display: none; }
+#discovered-list.show { display: block; }
+.disc-item {
+  padding: 9px 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  margin-bottom: 4px;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  transition: border-color 0.15s;
+}
+.disc-item:hover { border-color: var(--accent); }
+.disc-item .di-name { color: var(--accent); }
+.disc-item .di-ip { color: var(--muted); }
+
+/* ── TOAST ── */
+#toast {
+  position: fixed;
+  bottom: 20px; right: 20px;
+  background: var(--card);
+  border: 1px solid var(--border2);
+  border-left: 3px solid var(--green);
+  padding: 10px 16px;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  z-index: 999;
+  transform: translateY(10px);
+  opacity: 0;
+  transition: all 0.2s;
+  pointer-events: none;
+  max-width: 280px;
+}
+#toast.show { transform: translateY(0); opacity: 1; }
+#toast.error { border-left-color: var(--danger); }
+
+/* ── TEMP DIALOG ── */
+#temp-dialog {
+  position: fixed;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  background: var(--card);
+  border: 1px solid var(--border2);
+  border-radius: 10px;
+  padding: 20px;
+  z-index: 600;
+  width: 300px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+}
+
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+/* ── SECTION DIVIDER ── */
+.sec-label {
+  font-size: 0.58rem;
+  font-weight: 600;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding: 8px 4px 4px;
+}
+
+/* ── PRINTER SWITCHER ── */
+.printer-switcher {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-right: 8px;
+}
+.printer-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px 4px 8px;
+  border-radius: 20px;
+  border: 1px solid var(--border2);
+  background: var(--card);
+  cursor: pointer;
+  font-size: 0.68rem;
+  font-weight: 500;
+  transition: all 0.15s;
+  white-space: nowrap;
+  max-width: 160px;
+}
+.printer-tab:hover { border-color: var(--accent); }
+.printer-tab.active { border-color: var(--accent); background: rgba(79,158,255,0.12); color: #fff; }
+.printer-tab .pt-dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: var(--muted);
+}
+.printer-tab .pt-dot.connected { background: var(--green); box-shadow: 0 0 5px var(--green); }
+.printer-tab .pt-dot.connecting { background: var(--warn); animation: pill-pulse 1s infinite; }
+.printer-tab .pt-dot.error { background: var(--danger); }
+.printer-tab .pt-name {
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  max-width: 100px;
+}
+.printer-tab .pt-remove {
+  font-size: 0.7rem; color: var(--muted); margin-left: 2px;
+  opacity: 0; transition: opacity 0.15s;
+  line-height: 1;
+}
+.printer-tab:hover .pt-remove { opacity: 1; }
+.pt-remove:hover { color: var(--danger) !important; }
+
+.add-printer-btn {
+  width: 26px; height: 26px;
+  border-radius: 50%;
+  border: 1px dashed var(--border2);
+  background: none;
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 600;
+  font-family: var(--mono);
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.15s;
+  flex-shrink: 0;
+  line-height: 1;
+}
+.add-printer-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+/* Add printer — full overlay backdrop */
+#add-printer-backdrop {
+  display: none;
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.55);
+  z-index: 599;
+}
+#add-printer-backdrop.show { display: block; }
+#add-printer-modal {
+  position: fixed;
+  top: 72px; left: 50%; transform: translateX(-50%);
+  background: var(--card);
+  border: 1px solid var(--border2);
+  border-radius: 10px;
+  padding: 20px;
+  z-index: 600;
+  width: 360px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.7);
+  display: none;
+}
+#add-printer-modal.show { display: block; }
+#add-printer-modal h3 {
+  font-size: 0.9rem; font-weight: 600;
+  margin-bottom: 14px;
+  display: flex; justify-content: space-between; align-items: center;
+}
+#add-printer-modal h3 button {
+  background: none; border: none; color: var(--muted);
+  cursor: pointer; font-size: 1rem; line-height: 1;
+}
+
+/* ── MOTION CONTROL ── */
+.step-tab {
+  flex: 1; background: none;
+  border: none; border-right: 1px solid var(--border);
+  color: var(--muted); font-family: var(--mono);
+  font-size: 0.62rem; font-weight: 500;
+  padding: 7px 4px; cursor: pointer;
+  transition: all 0.15s; letter-spacing: 0.03em;
+}
+.step-tab:last-child { border-right: none; }
+.step-tab:hover { color: var(--text); background: rgba(255,255,255,0.04); }
+.step-tab.active { background: rgba(76,175,125,0.15); color: var(--green); font-weight: 700; }
+
+/* D-pad */
+.dpad {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(3, 38px);
+  gap: 3px;
+}
+.dpad-btn {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 6px; color: var(--text); cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  gap: 2px; font-family: var(--mono); font-size: 0.65rem;
+  font-weight: 700; transition: all 0.1s;
+  flex-direction: column; padding: 2px;
+}
+.dpad-btn svg { flex-shrink: 0; }
+.dpad-btn span { font-size: 0.52rem; color: var(--muted); line-height: 1; }
+.dpad-btn:hover { background: var(--card); border-color: var(--accent); color: var(--accent); }
+.dpad-btn:hover span { color: var(--accent); }
+.dpad-btn:active { transform: scale(0.91); }
+.dpad-center {
+  background: var(--card); border: 1px solid var(--border2);
+  border-radius: 50%; color: var(--warn); cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1rem; transition: all 0.1s; width: 100%; height: 100%;
+}
+.dpad-center:hover { background: rgba(245,166,35,0.15); border-color: var(--warn); }
+.dpad-center:active { transform: scale(0.91); }
+.dpad-corner {
+  background: none; border: 1px solid var(--border);
+  border-radius: 5px; color: var(--muted); cursor: pointer;
+  font-family: var(--mono); font-size: 0.55rem; font-weight: 600;
+  transition: all 0.1s; display: flex; align-items: center; justify-content: center;
+}
+.dpad-corner:hover { border-color: var(--warn); color: var(--warn); }
+.dpad-corner:active { transform: scale(0.91); }
+
+/* Z and E side buttons */
+.jog-side-btn {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 6px; color: var(--text); cursor: pointer;
+  width: 40px; height: 38px; display: flex;
+  flex-direction: column; align-items: center; justify-content: center;
+  gap: 2px; font-family: var(--mono); font-size: 0.62rem; font-weight: 700;
+  transition: all 0.1s;
+}
+.jog-side-btn span { color: var(--muted); font-size: 0.48rem; line-height: 1; }
+.jog-side-btn:hover { background: var(--card); border-color: var(--accent); color: var(--accent); }
+.jog-side-btn:hover span { color: var(--accent); }
+.jog-side-btn:active { transform: scale(0.91); }
+.jog-side-btn.e-btn:hover { border-color: var(--purple); color: var(--purple); }
+.jog-side-btn.e-btn:hover span { color: var(--purple); }
+.jog-home-side {
+  background: none; border: 1px solid var(--border);
+  border-radius: 6px; color: var(--muted); cursor: pointer;
+  width: 40px; height: 28px; font-size: 0.75rem;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.1s;
+}
+.jog-home-side:hover { border-color: var(--warn); color: var(--warn); }
+.jog-home-side:active { transform: scale(0.91); }
+/* compat stubs */
+.step-selector, .step-btn, .home-all-btn, .motion-panel,
+.xy-pad, .jog-btn, .z-pad, .e-pad { display: none; }
+</style>
+</head>
+<body>
+
+<!-- ADD PRINTER MODAL -->
+<div id="add-printer-backdrop" onclick="closeAddModal()"></div>
+<div id="add-printer-modal">
+  <h3>Add Printer <button onclick="closeAddModal()">✕</button></h3>
+  <div class="field" style="margin-bottom:10px">
+    <label>Name</label>
+    <input type="text" id="new-printer-name" placeholder="Centauri Carbon 1" style="width:100%;background:var(--surface);border:1px solid var(--border2);border-radius:5px;color:var(--text);font-family:var(--mono);padding:8px 10px;font-size:0.85rem;outline:none">
+  </div>
+  <div class="field" style="margin-bottom:14px">
+    <label>IP Address</label>
+    <input type="text" id="new-printer-ip" placeholder="192.168.1.x"
+      style="width:100%;background:var(--surface);border:1px solid var(--border2);border-radius:5px;color:var(--text);font-family:var(--mono);padding:8px 10px;font-size:0.85rem;outline:none"
+      onkeydown="if(event.key==='Enter')addPrinter()">
+  </div>
+  <div id="add-discovered-list" style="margin-bottom:10px"></div>
+  <div style="display:flex;gap:8px">
+    <button class="btn ghost sm" onclick="discoverForAdd()">⟳ Discover</button>
+    <button class="btn sm" onclick="addPrinter()">Add →</button>
+  </div>
+</div>
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <div class="logo">
+    <div class="logo-dot"></div>
+    CENTAURI CARBON
+  </div>
+  <div class="topbar-center">
+    <div class="state-badge" id="state-badge">IDLE</div>
+    <div class="filename-display" id="filename-display">—</div>
+  </div>
+  <div class="topbar-right">
+    <div class="printer-switcher" id="printer-switcher"></div>
+    <button class="add-printer-btn" id="add-printer-btn" onclick="openAddModal()" title="Add printer">+</button>
+  </div>
+</div>
+
+<!-- DASHBOARD -->
+<div class="dashboard">
+
+  <!-- LEFT: STATS -->
+  <div class="col-left">
+
+    <!-- Progress -->
+    <div class="sec-label">Progress</div>
+    <div class="card progress-card">
+      <div class="card-body">
+        <div class="ring-wrap">
+          <svg class="progress-ring" width="90" height="90" viewBox="0 0 90 90">
+            <circle class="ring-bg" cx="45" cy="45" r="38" fill="none" stroke-width="5"/>
+            <circle class="ring-fg" id="progress-ring-fg" cx="45" cy="45" r="38" fill="none" stroke-width="5"
+              stroke-dasharray="238.76" stroke-dashoffset="238.76"/>
+          </svg>
+          <div class="ring-center">
+            <div class="ring-pct" id="progress-pct">0%</div>
+            <div class="ring-sub">DONE</div>
+          </div>
+        </div>
+        <div class="progress-meta">
+          <div class="meta-row">
+            <span class="meta-label">Layer</span>
+            <span class="meta-value accent"><span id="current-layer">—</span> / <span id="total-layers">—</span></span>
+          </div>
+          <div class="meta-row">
+            <span class="meta-label">Elapsed</span>
+            <span class="meta-value" id="time-elapsed">—</span>
+          </div>
+          <div class="meta-row">
+            <span class="meta-label">Remain</span>
+            <span class="meta-value" id="time-remain">—</span>
+          </div>
+          <div class="progress-bar-wrap">
+            <div class="progress-bar-fill" id="progress-bar" style="width:0%"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Temperatures -->
+    <div class="sec-label">Temperatures</div>
+    <div class="card">
+      <div class="temp-grid">
+        <div class="temp-block" onclick="showTempDialog()">
+          <div class="tb-label">Nozzle</div>
+          <div class="tb-current" id="nozzle-cur">—°</div>
+          <div class="tb-target" id="nozzle-tgt">target —°</div>
+          <div class="tb-bar"><div class="tb-fill nozzle" id="nozzle-bar" style="width:0%"></div></div>
+        </div>
+        <div class="temp-block" onclick="showTempDialog()">
+          <div class="tb-label">Bed</div>
+          <div class="tb-current" id="bed-cur">—°</div>
+          <div class="tb-target" id="bed-tgt">target —°</div>
+          <div class="tb-bar"><div class="tb-fill bed" id="bed-bar" style="width:0%"></div></div>
+        </div>
+        <div class="temp-block">
+          <div class="tb-label">Chamber</div>
+          <div class="tb-current cool" id="box-cur">—°</div>
+          <div class="tb-target" id="box-tgt">target —°</div>
+          <div class="tb-bar"><div class="tb-fill box" id="box-bar" style="width:0%"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Position & Speed -->
+    <div class="sec-label">Position & Speed</div>
+    <div class="card">
+      <div class="stat-grid">
+        <div class="stat-cell">
+          <div class="sc-label">X</div>
+          <div class="sc-value" id="pos-x">—</div>
+        </div>
+        <div class="stat-cell">
+          <div class="sc-label">Y</div>
+          <div class="sc-value" id="pos-y">—</div>
+        </div>
+        <div class="stat-cell">
+          <div class="sc-label">Z</div>
+          <div class="sc-value accent" id="pos-z">—</div>
+        </div>
+        <div class="stat-cell">
+          <div class="sc-label">Speed</div>
+          <div class="sc-value" id="print-speed">—%</div>
+          <div style="font-family:var(--mono);font-size:0.6rem;color:var(--muted);margin-top:2px" id="print-speed-mms">—</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Motors -->
+    <div class="sec-label">Motors</div>
+    <div class="card">
+      <div class="motor-row">
+        <div class="motor-chip" id="motor-x">
+          <div class="mc-axis">X</div>
+          <div class="mc-status">—</div>
+        </div>
+        <div class="motor-chip" id="motor-y">
+          <div class="mc-axis">Y</div>
+          <div class="mc-status">—</div>
+        </div>
+        <div class="motor-chip" id="motor-z">
+          <div class="mc-axis">Z</div>
+          <div class="mc-status">—</div>
+        </div>
+        <div class="motor-chip" id="motor-e">
+          <div class="mc-axis">E</div>
+          <div class="mc-status">—</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Fans -->
+    <div class="sec-label">Fans</div>
+    <div class="card">
+      <div style="padding:10px;display:flex;flex-direction:column;gap:8px">
+        <div class="slider-block">
+          <label for="fan-model-slider">Model Fan <span id="fan-model-val">0%</span></label>
+          <input type="range" min="0" max="100" value="0" id="fan-model-slider"
+            oninput="document.getElementById('fan-model-val').textContent=this.value+'%'"
+            onchange="sendCmd(403,{TargetFanSpeed:{ModelFan:parseInt(this.value),AuxiliaryFan:parseInt(document.getElementById('fan-aux-slider').value),BoxFan:parseInt(document.getElementById('fan-box-slider').value)}})">
+        </div>
+        <div class="slider-block">
+          <label for="fan-aux-slider">Aux Fan <span id="fan-aux-val">0%</span></label>
+          <input type="range" min="0" max="100" value="0" id="fan-aux-slider"
+            oninput="document.getElementById('fan-aux-val').textContent=this.value+'%'"
+            onchange="sendCmd(403,{TargetFanSpeed:{ModelFan:parseInt(document.getElementById('fan-model-slider').value),AuxiliaryFan:parseInt(this.value),BoxFan:parseInt(document.getElementById('fan-box-slider').value)}})">
+        </div>
+        <div class="slider-block">
+          <label for="fan-box-slider">Box Fan <span id="fan-box-val">0%</span></label>
+          <input type="range" min="0" max="100" value="0" id="fan-box-slider"
+            oninput="document.getElementById('fan-box-val').textContent=this.value+'%'"
+            onchange="sendCmd(403,{TargetFanSpeed:{ModelFan:parseInt(document.getElementById('fan-model-slider').value),AuxiliaryFan:parseInt(document.getElementById('fan-aux-slider').value),BoxFan:parseInt(this.value)}})">
+        </div>
+      </div>
+    </div>
+
+    <!-- Motion Control -->
+    <div class="sec-label">Motion Control</div>
+    <div class="card" style="overflow:hidden">
+
+      <!-- Step tabs -->
+      <div style="display:flex;border-bottom:1px solid var(--border)">
+        <span style="font-size:0.55rem;color:var(--muted);letter-spacing:0.08em;text-transform:uppercase;padding:0 8px;display:flex;align-items:center;border-right:1px solid var(--border);flex-shrink:0">mm</span>
+        <button class="step-tab active" onclick="setStep(0.1,this)">0.1</button>
+        <button class="step-tab" onclick="setStep(1,this)">1</button>
+        <button class="step-tab" onclick="setStep(10,this)">10</button>
+        <button class="step-tab" onclick="setStep(30,this)">30</button>
+      </div>
+
+      <!-- Jog grid: Z | XY | E -->
+      <div style="display:grid;grid-template-columns:40px 1fr 40px;gap:6px;padding:10px;align-items:center">
+
+        <!-- Z axis -->
+        <div style="display:flex;flex-direction:column;gap:4px;align-items:center">
+          <button class="jog-side-btn" onclick="jog('Z',1)" title="Z+">
+            <svg width="10" height="8" viewBox="0 0 10 8"><path d="M5 0L10 8H0z" fill="currentColor"/></svg>
+            <span>Z</span>
+          </button>
+          <button class="jog-home-side" onclick="jogHome('Z')" title="Home Z">⌂</button>
+          <button class="jog-side-btn" onclick="jog('Z',-1)" title="Z-">
+            <span>Z</span>
+            <svg width="10" height="8" viewBox="0 0 10 8"><path d="M5 8L0 0H10z" fill="currentColor"/></svg>
+          </button>
+        </div>
+
+        <!-- XY D-pad -->
+        <div class="dpad">
+          <div></div>
+          <button class="dpad-btn" onclick="jog('Y',1)" title="Y+">
+            <svg width="11" height="9" viewBox="0 0 11 9"><path d="M5.5 0L11 9H0z" fill="currentColor"/></svg>
+            <span>Y+</span>
+          </button>
+          <button class="dpad-corner" onclick="jogHome('X')" title="Home X">⌂X</button>
+          <button class="dpad-btn" onclick="jog('X',-1)" title="X-">
+            <svg width="9" height="11" viewBox="0 0 9 11"><path d="M0 5.5L9 0V11z" fill="currentColor"/></svg>
+            <span>X-</span>
+          </button>
+          <button class="dpad-center" onclick="jogHome('ALL')" title="Home All">⌂</button>
+          <button class="dpad-btn" onclick="jog('X',1)" title="X+">
+            <svg width="9" height="11" viewBox="0 0 9 11"><path d="M9 5.5L0 0V11z" fill="currentColor"/></svg>
+            <span>+X</span>
+          </button>
+          <button class="dpad-corner" onclick="jogHome('Y')" title="Home Y">⌂Y</button>
+          <button class="dpad-btn" onclick="jog('Y',-1)" title="Y-">
+            <span>Y-</span>
+            <svg width="11" height="9" viewBox="0 0 11 9"><path d="M5.5 9L0 0H11z" fill="currentColor"/></svg>
+          </button>
+          <div></div>
+        </div>
+
+        <!-- Extruder axis -->
+        <div style="display:flex;flex-direction:column;gap:4px;align-items:center">
+          <button class="jog-side-btn e-btn" onclick="jogExtrude(1)" title="Extrude">
+            <svg width="10" height="8" viewBox="0 0 10 8"><path d="M5 0L10 8H0z" fill="currentColor"/></svg>
+            <span>E</span>
+          </button>
+          <select id="jog-feedrate" style="width:40px;background:var(--surface);border:1px solid var(--border);border-radius:4px;color:var(--muted);font-size:0.48rem;padding:3px 1px;font-family:var(--mono);text-align:center;cursor:pointer">
+            <option value="600">Slow</option>
+            <option value="1500" selected>Med</option>
+            <option value="3000">Fast</option>
+          </select>
+          <button class="jog-side-btn e-btn" onclick="jogExtrude(-1)" title="Retract">
+            <span>E</span>
+            <svg width="10" height="8" viewBox="0 0 10 8"><path d="M5 8L0 0H10z" fill="currentColor"/></svg>
+          </button>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+
+  <!-- CENTER: CAMERA + CONTROLS -->
+  <div class="col-center">
+
+    <!-- Camera -->
+    <div class="camera-section" id="camera-section">
+      <img id="camera-feed" alt="Camera">
+      <div class="cam-placeholder" id="cam-placeholder">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2">
+          <rect x="2" y="5" width="20" height="14" rx="2"/>
+          <circle cx="12" cy="12" r="3.5"/>
+          <path d="M8 2l1.5 3M16 2l-1.5 3"/>
+        </svg>
+        CAMERA UNAVAILABLE
+      </div>
+      <div class="cam-overlay cam-corners"></div>
+      <div class="cam-badge" id="cam-badge" style="display:none">● LIVE</div>
+      <button class="cam-fullscreen-btn" onclick="toggleFullscreen(event)" title="Fullscreen">⛶</button>
+    </div>
+
+    <!-- Drag Divider -->
+    <div class="drag-divider" id="drag-divider"></div>
+
+    <!-- Controls -->
+    <div class="controls-section">
+      <div class="btn-grid">
+        <button class="action-btn success" onclick="sendCmd(128,{Filename:currentFile,StartLayer:0})">
+          <span class="btn-icon">▶</span>Print
+        </button>
+        <button class="action-btn" onclick="sendCmd(129,{})">
+          <span class="btn-icon">⏸</span>Pause
+        </button>
+        <button class="action-btn" onclick="sendCmd(131,{})">
+          <span class="btn-icon">▷</span>Resume
+        </button>
+        <button class="action-btn danger" onclick="confirmStop()">
+          <span class="btn-icon">■</span>Stop
+        </button>
+        <button class="action-btn" id="btn-light" onclick="toggleLight()">
+          <span class="btn-icon">☀</span>Lights
+        </button>
+        <button class="action-btn" onclick="showTempDialog()">
+          <span class="btn-icon">⊙</span>Set Temps
+        </button>
+        <button class="action-btn" onclick="sendCmd(403,{TargetFanSpeed:{ModelFan:0,AuxiliaryFan:0,BoxFan:0}});showToast('Fans off')">
+          <span class="btn-icon">⊘</span>Fans Off
+        </button>
+        <button class="action-btn" onclick="sendCmd(256,{})">
+          <span class="btn-icon">↻</span>Files
+        </button>
+      </div>
+
+      <div class="sliders-section">
+        <div class="slider-block">
+          <label for="speed-slider">Print Speed <span id="speed-val">100%</span></label>
+          <input type="range" min="10" max="200" value="100" id="speed-slider"
+            oninput="document.getElementById('speed-val').textContent=this.value+'%'"
+            onchange="sendCmd(403,{PrintSpeedPct:parseInt(this.value)})">
+        </div>
+        <div class="slider-block" style="opacity:0.4" title="Flow rate is not supported by SDCP v3.0">
+          <label for="flow-slider">Flow Rate <span id="flow-val">100%</span> <span style="font-size:0.55rem;color:var(--muted)">(n/a)</span></label>
+          <input type="range" min="50" max="150" value="100" id="flow-slider" disabled
+            oninput="document.getElementById('flow-val').textContent=this.value+'%'">
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+
+  <!-- RIGHT: LOG/FILES/INFO -->
+  <div class="col-right">
+    <div class="rtabs">
+      <button class="rtab active" onclick="switchRTab('log',this)">Log</button>
+      <button class="rtab" onclick="switchRTab('files',this)">Files</button>
+      <button class="rtab" onclick="switchRTab('info',this)">Info</button>
+    </div>
+
+    <!-- LOG -->
+    <div class="rpanel active" id="rpanel-log">
+      <div id="log-output"></div>
+      <div class="log-footer">
+        <button class="btn ghost sm" onclick="clearLog()">Clear</button>
+        <button class="btn ghost sm" onclick="copyLog()">Copy</button>
+        <label><input type="checkbox" id="auto-scroll" checked> Autoscroll</label>
+      </div>
+      <div id="cmd-row">
+        <input type="text" id="cmd-input" placeholder='raw JSON or {"Cmd":0,"Data":{}}…' onkeydown="if(event.key==='Enter')sendRaw()">
+        <button class="btn sm" onclick="sendRaw()">Send</button>
+      </div>
+    </div>
+
+    <!-- FILES -->
+    <div class="rpanel" id="rpanel-files">
+      <div class="file-list" id="file-list">
+        <div style="padding:24px;text-align:center;color:var(--muted);font-size:0.78rem">
+          Connect to load files
+        </div>
+      </div>
+      <div class="file-footer">
+        <button class="btn ghost sm" onclick="sendCmd(256,{})">↻ Refresh</button>
+        <label class="btn ghost sm" style="cursor:pointer">
+          ↑ Upload
+          <input type="file" accept=".gcode" style="display:none" onchange="uploadFile(this)">
+        </label>
+      </div>
+    </div>
+
+    <!-- INFO -->
+    <div class="rpanel" id="rpanel-info">
+      <div class="info-body" id="info-grid">
+        <div style="color:var(--muted);font-size:0.75rem">Connect to load printer info</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════════════
+//  PRINTER REGISTRY
+// ═══════════════════════════════════════════════
+// Each printer: { id, name, ip, ws, mainboardID, currentFile, lightOn,
+//                 status, reconnectTimer, heartbeatInterval }
+const printers = {};
+let activePrinterId = null;
+
+// Convenience getters for the active printer
+function ap() { return printers[activePrinterId] || null; }
+function get_ws() { const p=ap(); return p?p.ws:null; }
+
+// Aliases used by the rest of the code
+Object.defineProperty(window,'ws',{get:()=>get_ws()});
+Object.defineProperty(window,'printerIP',{get:()=>{const p=ap();return p?p.ip:'';}});
+Object.defineProperty(window,'mainboardID',{
+  get:()=>{const p=ap();return p?p.mainboardID:'';},
+  set:(v)=>{const p=ap();if(p)p.mainboardID=v;}
+});
+Object.defineProperty(window,'currentFile',{
+  get:()=>{const p=ap();return p?p.currentFile:'';},
+  set:(v)=>{const p=ap();if(p)p.currentFile=v;}
+});
+Object.defineProperty(window,'lightOn',{
+  get:()=>{const p=ap();return p?p.lightOn:true;},
+  set:(v)=>{const p=ap();if(p)p.lightOn=v;}
+});
+
+const PRINT_STATE_LABELS = {
+  0:'IDLE', 1:'PREHEATING', 2:'HOMING', 3:'LEVELING',
+  4:'PREHEATING', 5:'PAUSED', 6:'PAUSING', 7:'STOPPING',
+  8:'IDLE', 9:'COMPLETE', 13:'PRINTING', 16:'COMPLETE', 17:'STOPPING',
+};
+const PRINT_STATE_CLASS = {
+  13:'printing', 9:'printing', 16:'printing',
+  5:'paused', 6:'paused',
+  7:'error', 17:'error',
+};
+
+// ═══════════════════════════════════════════════
+//  PRINTER SWITCHER UI
+// ═══════════════════════════════════════════════
+function renderPrinterTabs() {
+  const sw = document.getElementById('printer-switcher');
+  if (!Object.keys(printers).length) { sw.innerHTML=''; return; }
+  sw.innerHTML = Object.values(printers).map(p => `
+    <div class="printer-tab ${p.id===activePrinterId?'active':''}"
+         onclick="switchPrinter('${p.id}')">
+      <div class="pt-dot ${p.connStatus||'disconnected'}"></div>
+      <span class="pt-name">${p.name}</span>
+      <span class="pt-remove" onclick="event.stopPropagation();removePrinter('${p.id}')" title="Remove">✕</span>
+    </div>`).join('');
+}
+
+function switchPrinter(id) {
+  if (!printers[id]) return;
+  activePrinterId = id;
+  renderPrinterTabs();
+  // Refresh UI with this printer's cached state
+  const p = printers[id];
+  setConnStatus(p.connStatus || 'disconnected');
+  // Trigger a status refresh if connected
+  if (p.ws && p.ws.readyState === WebSocket.OPEN) {
+    sendCmd(0,{}); sendCmd(1,{});
+  } else {
+    // Clear UI to show disconnected state
+    document.getElementById('state-badge').textContent = 'OFFLINE';
+    document.getElementById('state-badge').className = 'state-badge';
+    document.getElementById('filename-display').textContent = '—';
+  }
+  log(`Switched to ${p.name} (${p.ip})`, 'info');
+}
+
+function removePrinter(id) {
+  const p = printers[id];
+  if (!p) return;
+  if (!confirm(`Remove ${p.name}?`)) return;
+  try { p.ws && p.ws.close(); } catch {}
+  clearTimeout(p.reconnectTimer);
+  clearInterval(p.heartbeatInterval);
+  delete printers[id];
+  if (activePrinterId === id) {
+    const remaining = Object.keys(printers);
+    activePrinterId = remaining.length ? remaining[0] : null;
+    if (activePrinterId) switchPrinter(activePrinterId);
+  }
+  renderPrinterTabs();
+  savePrinters();
+  showToast(`Removed ${p.name}`);
+}
+
+// ═══════════════════════════════════════════════
+//  PERSISTENCE
+// ═══════════════════════════════════════════════
+function savePrinters() {
+  const saved = Object.values(printers).map(p => ({id:p.id, name:p.name, ip:p.ip}));
+  localStorage.setItem('centauri_printers', JSON.stringify(saved));
+  if (activePrinterId) localStorage.setItem('centauri_active', activePrinterId);
+}
+
+function loadPrinters() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('centauri_printers') || '[]');
+    if (!saved.length) return false;
+    saved.forEach(p => {
+      printers[p.id] = {id:p.id, name:p.name, ip:p.ip, ws:null, mainboardID:'',
+                        currentFile:'', lightOn:true, connStatus:'connecting',
+                        reconnectTimer:null, heartbeatInterval:null};
+    });
+    const savedActive = localStorage.getItem('centauri_active');
+    activePrinterId = (savedActive && printers[savedActive]) ? savedActive : Object.keys(printers)[0];
+    renderPrinterTabs();
+    Object.keys(printers).forEach(id => connectPrinterById(id));
+    return true;
+  } catch(e) { return false; }
+}
+
+// ═══════════════════════════════════════════════
+//  ADD PRINTER MODAL
+// ═══════════════════════════════════════════════
+function openAddModal() {
+  const modal = document.getElementById('add-printer-modal');
+  const backdrop = document.getElementById('add-printer-backdrop');
+  const isOpen = modal.classList.contains('show');
+  if (isOpen) { closeAddModal(); return; }
+  modal.classList.add('show');
+  backdrop.classList.add('show');
+  const n = Object.keys(printers).length + 1;
+  document.getElementById('new-printer-name').value = 'Centauri Carbon ' + n;
+  document.getElementById('new-printer-ip').value = '';
+  document.getElementById('add-discovered-list').innerHTML = '';
+  setTimeout(() => document.getElementById('new-printer-ip').focus(), 80);
+}
+function closeAddModal() {
+  document.getElementById('add-printer-modal').classList.remove('show');
+  document.getElementById('add-printer-backdrop').classList.remove('show');
+}
+
+function addPrinter() {
+  const ip   = document.getElementById('new-printer-ip').value.trim();
+  const name = document.getElementById('new-printer-name').value.trim() || `Centauri Carbon`;
+  if (!ip) { showToast('Enter an IP address', true); return; }
+  // Check for duplicate IP
+  if (Object.values(printers).some(p=>p.ip===ip)) {
+    showToast('Printer already added', true); return;
+  }
+  const id = 'p_' + Date.now();
+  printers[id] = { id, name, ip, ws:null, mainboardID:'', currentFile:'',
+                   lightOn:true, connStatus:'connecting', reconnectTimer:null, heartbeatInterval:null };
+  activePrinterId = id;
+  closeAddModal();
+  renderPrinterTabs();
+  connectPrinterById(id);
+  savePrinters();
+}
+
+async function discoverForAdd() {
+  const list = document.getElementById('add-discovered-list');
+  list.innerHTML = '<div style="padding:6px;font-size:0.75rem;color:var(--muted)">Scanning…</div>';
+  const base = guessBase();
+  const found = [];
+  await Promise.allSettled(
+    Array.from({length:30},(_,i)=>i+1).map(i =>
+      probeIP(`${base}.${i}`).then(ok => ok && found.push(`${base}.${i}`))
+    )
+  );
+  if (!found.length) {
+    list.innerHTML = '<div style="padding:6px;font-size:0.75rem;color:var(--muted)">None found</div>';
+    return;
+  }
+  list.innerHTML = found.map(ip =>
+    `<div class="disc-item" style="margin-bottom:4px" onclick="document.getElementById('new-printer-ip').value='${ip}';this.parentElement.innerHTML=''">
+      <span class="di-name">Centauri Carbon</span><span class="di-ip">${ip}</span>
+    </div>`).join('');
+}
+
+// ═══════════════════════════════════════════════
+//  DISCOVERY HELPERS
+// ═══════════════════════════════════════════════
+function guessBase() {
+  const h = location.hostname;
+  return h.match(/^\d+\.\d+\.\d+\.\d+$/) ? h.split('.').slice(0,3).join('.') : '192.168.1';
+}
+async function probeIP(ip) {
+  try {
+    const c = new AbortController(); setTimeout(()=>c.abort(),1500);
+    await fetch(`http://${ip}:3030/`,{signal:c.signal,mode:'no-cors'}); return true;
+  } catch { return false; }
+}
+
+// ═══════════════════════════════════════════════
+//  WEBSOCKET — per-printer
+// ═══════════════════════════════════════════════
+function connectPrinterById(id) {
+  const p = printers[id];
+  if (!p) return;
+  p.connStatus = 'connecting';
+  renderPrinterTabs();
+  if (activePrinterId === id) setConnStatus('connecting');
+  tryConnectById(id, ['/websocket','/ws','/'], 0);
+}
+
+function tryConnectById(id, paths, idx) {
+  const p = printers[id];
+  if (!p) return;
+  if (idx >= paths.length) {
+    p.connStatus = 'error';
+    renderPrinterTabs();
+    if (activePrinterId===id) { setConnStatus('error'); showToast(`${p.name}: connection failed`,true); }
+    log(`${p.name}: failed on all paths`,'error');
+    return;
+  }
+  const url = `ws://${p.ip}:3030${paths[idx]}`;
+  log(`${p.name}: trying ${url}`,'info');
+  try { p.ws && p.ws.close(); } catch {}
+  const sock = new WebSocket(url);
+  p.ws = sock;
+
+  sock.onopen = () => {
+    p.connStatus = 'connected';
+    renderPrinterTabs();
+    if (activePrinterId===id) setConnStatus('connected');
+    log(`${p.name}: connected via ${paths[idx]}`,'recv');
+    showToast(`${p.name} connected`);
+    // Send initial commands via this specific socket
+    const sendTo = (cmd,data) => {
+      const msg={Id:uuid(),Data:{Cmd:cmd,Data:data||{},RequestID:uuid(),MainboardID:p.mainboardID,TimeStamp:Math.floor(Date.now()/1000),From:2},Topic:`sdcp/request/${p.mainboardID}`};
+      sock.send(JSON.stringify(msg));
+    };
+    sendTo(0,{}); sendTo(1,{}); sendTo(256,{});
+    // Camera only for active printer
+    if (activePrinterId===id) startCamera();
+    // Heartbeat
+    clearInterval(p.heartbeatInterval);
+    p.heartbeatInterval = setInterval(()=>{ if(sock.readyState===WebSocket.OPEN) sock.send('"ping"'); },15000);
+  };
+
+  sock.onmessage = e => {
+    // Only update UI if this is the active printer
+    if (activePrinterId===id) handleMessage(e.data);
+    else {
+      // Still parse for state badge on tab
+      try {
+        const d=JSON.parse(e.data);
+        if (d.Status&&d.Status.PrintInfo) {
+          p.lastState=d.Status.PrintInfo.Status;
+          renderPrinterTabs();
+        }
+      } catch {}
+    }
+  };
+
+  sock.onerror = () => { p.ws=null; tryConnectById(id,paths,idx+1); };
+
+  sock.onclose = () => {
+    if (p.connStatus==='connected' || p.connStatus==='connecting') {
+      p.connStatus='error';
+      renderPrinterTabs();
+      if (activePrinterId===id) { setConnStatus('error'); log(`${p.name}: connection lost`,'error'); }
+      clearTimeout(p.reconnectTimer);
+      p.reconnectTimer = setTimeout(()=>connectPrinterById(id), 5000);
+    }
+  };
+}
+
+// Legacy shims so rest of code still works
+function connectPrinter() { /* no-op, use addPrinter() */ }
+function showConnect() { openAddModal(); }
+
+let heartbeatInterval = null; // kept for compat but unused
+function startHeartbeat() {} // handled per-printer above
+
+// ═══════════════════════════════════════════════
+//  CAMERA
+// ═══════════════════════════════════════════════
+function startCamera() {
+  const p=ap(); if(!p)return;
+  sendCmd(386,{Enable:1});
+  log(`Requesting camera for ${p.name}…`,'info');
+}
+
+function activateCameraStream(videoUrl) {
+  const p=ap();
+  if (!videoUrl.startsWith('http')) videoUrl = 'http://' + (p?p.ip:'') + ':3031/video';
+  const feed = document.getElementById('camera-feed');
+  const placeholder = document.getElementById('cam-placeholder');
+  const badge = document.getElementById('cam-badge');
+  feed.onload = () => {
+    feed.style.display = 'block';
+    placeholder.style.display = 'none';
+    badge.style.display = 'block';
+  };
+  feed.onerror = () => {
+    feed.style.display = 'none';
+    placeholder.style.display = '';
+    badge.style.display = 'none';
+    log('Camera stream error: ' + videoUrl, 'warn');
+  };
+  feed.src = videoUrl;
+  log('Camera: ' + videoUrl, 'recv');
+}
+
+let camFullscreen = false;
+function toggleFullscreen(e) {
+  e.stopPropagation();
+  const sec = document.getElementById('camera-section');
+  camFullscreen = !camFullscreen;
+  sec.classList.toggle('fullscreen', camFullscreen);
+  e.target.textContent = camFullscreen ? '✕' : '⛶';
+}
+
+// ═══════════════════════════════════════════════
+//  SDCP
+// ═══════════════════════════════════════════════
+function sendCmd(cmd, data) {
+  const p = ap();
+  if (!p || !p.ws || p.ws.readyState !== WebSocket.OPEN) { showToast('Not connected',true); return; }
+  const msg = { Id:uuid(), Data:{ Cmd:cmd, Data:data||{}, RequestID:uuid(), MainboardID:p.mainboardID, TimeStamp:Math.floor(Date.now()/1000), From:2 }, Topic:`sdcp/request/${p.mainboardID}` };
+  p.ws.send(JSON.stringify(msg));
+  log(`→ CMD ${cmd}: ${JSON.stringify(data)}`,'send');
+}
+function sendRaw() {
+  const inp = document.getElementById('cmd-input');
+  const raw = inp.value.trim(); if (!raw) return;
+  if (!ws||ws.readyState!==WebSocket.OPEN) { showToast('Not connected',true); return; }
+  try { ws.send(JSON.stringify(JSON.parse(raw))); log(`→ RAW: ${raw}`,'send'); inp.value=''; }
+  catch { showToast('Invalid JSON',true); }
+}
+
+function handleMessage(raw) {
+  if (raw==='"pong"'||raw==='pong') return;
+  log(`← ${raw.length>500?raw.substring(0,500)+'…':raw}`,'recv');
+  let data; try { data=JSON.parse(raw); } catch { return; }
+
+  if (data.Status && typeof data.Status==='object') updateStatus(data.Status);
+  if (data.Attributes && typeof data.Attributes==='object') updateAttributes(data.Attributes);
+  if (data.FileList) updateFileList(data.FileList);
+  if (data.fileList) updateFileList(data.fileList);
+
+  if (data.Data && typeof data.Data==='object') {
+    const inner = data.Data.Data;
+    if (inner) {
+      if (inner.Status) updateStatus(inner.Status);
+      if (inner.Attributes) updateAttributes(inner.Attributes);
+      const fl = inner.FileList??inner.fileList??inner.Files??inner.files??inner.FileData;
+      if (fl) updateFileList(fl);
+      if (data.Data.Cmd===256||data.Data.Cmd===258) {
+        log('File keys: '+Object.keys(inner).join(', '),'warn');
+        log('File raw: '+JSON.stringify(inner).substring(0,200),'warn');
+      }
+      if (Array.isArray(inner)&&data.Data.Cmd===256) updateFileList(inner);
+      if (inner.VideoUrl&&inner.Ack===0) activateCameraStream(inner.VideoUrl);
+    }
+    if (data.Data.MainboardID&&!mainboardID) {
+      mainboardID=data.Data.MainboardID;
+      log(`Mainboard ID: ${mainboardID}`,'info');
+    }
+  }
+  if (data.MainboardID&&!mainboardID) mainboardID=data.MainboardID;
+}
+
+// ═══════════════════════════════════════════════
+//  UI UPDATES
+// ═══════════════════════════════════════════════
+function updateStatus(s) {
+  if (!s) return;
+
+  // Temps
+  if (s.TempOfNozzle!==undefined) {
+    const c=s.TempOfNozzle, t=s.TempTargetNozzle??0;
+    document.getElementById('nozzle-cur').textContent=c.toFixed(1)+'°';
+    document.getElementById('nozzle-tgt').textContent='target '+t+'°';
+    setBar('nozzle-bar', c, 300);
+    const tb=document.getElementById('nozzle-cur').closest('.temp-block');
+    tb.className='temp-block '+(c>150?'hot':c>80?'warm':'');
+  }
+  if (s.TempOfHotbed!==undefined) {
+    const c=s.TempOfHotbed, t=s.TempTargetHotbed??0;
+    document.getElementById('bed-cur').textContent=c.toFixed(1)+'°';
+    document.getElementById('bed-tgt').textContent='target '+t+'°';
+    setBar('bed-bar', c, 130);
+  }
+  if (s.TempOfBox!==undefined) {
+    const c=s.TempOfBox, t=s.TempTargetBox??0;
+    document.getElementById('box-cur').textContent=c.toFixed(1)+'°';
+    document.getElementById('box-tgt').textContent='target '+t+'°';
+    setBar('box-bar', c, 80);
+  }
+
+  // XYZ
+  if (s.CurrenCoord) {
+    const [x,y,z]=s.CurrenCoord.split(',');
+    setText('pos-x', x??'—');
+    setText('pos-y', y??'—');
+    setText('pos-z', z??'—');
+  }
+
+  // Fans — sync all three sliders
+  if (s.CurrentFanSpeed) {
+    const f=s.CurrentFanSpeed;
+    syncSlider('fan-model-slider','fan-model-val', f.ModelFan??0);
+    syncSlider('fan-aux-slider','fan-aux-val', f.AuxiliaryFan??0);
+    syncSlider('fan-box-slider','fan-box-val', f.BoxFan??0);
+  }
+
+  if (s.DevicesStatus) updateMotors(s.DevicesStatus);
+
+  const p=s.PrintInfo; if (!p) return;
+
+  // Progress
+  const pct=p.Progress??(p.TotalTicks>0?Math.round(p.CurrentTicks/p.TotalTicks*100):0);
+  setProgress(pct);
+  setText('progress-pct', pct+'%');
+  setText('current-layer', p.CurrentLayer||'—');
+  setText('total-layers', p.TotalLayer||'—');
+  document.getElementById('progress-bar').style.width=pct+'%';
+
+  // State badge
+  const badge=document.getElementById('state-badge');
+  const stateId=p.Status;
+  badge.textContent=PRINT_STATE_LABELS[stateId]??('STATE '+stateId);
+  badge.className='state-badge '+(PRINT_STATE_CLASS[stateId]??'');
+
+  // Filename in topbar
+  if (p.Filename) {
+    currentFile=p.Filename;
+    document.getElementById('filename-display').textContent=p.Filename.split('/').pop();
+  }
+
+  // Time
+  if (p.CurrentTicks!==undefined) setText('time-elapsed', formatTime(Math.floor(p.CurrentTicks)));
+  if (p.TotalTicks!==undefined&&p.CurrentTicks!==undefined)
+    setText('time-remain', formatTime(Math.floor(p.TotalTicks-p.CurrentTicks)));
+
+  // Speed — show both % and estimated mm/s (Centauri Carbon nominal = 500mm/s max)
+  if (p.PrintSpeedPct!==undefined) {
+    setText('print-speed', p.PrintSpeedPct+'%');
+    const mms = Math.round(p.PrintSpeedPct * 5); // 100% ≈ 500mm/s nominal
+    setText('print-speed-mms', mms+' mm/s');
+    syncSlider('speed-slider','speed-val', Math.min(200,Math.max(10,p.PrintSpeedPct)));
+  }
+}
+
+function updateMotors(devs) {
+  if (!devs) return;
+  [['motor-x',devs.XMotorStatus],['motor-y',devs.YMotorStatus],
+   ['motor-z',devs.ZMotorStatus],['motor-e',devs.ExtruderMotorStatus]].forEach(([id,val])=>{
+    const el=document.getElementById(id);
+    if (val===undefined) {
+      // Only mark N/A if still showing default dash (don't overwrite a known good/fault)
+      if (el.querySelector('.mc-status').textContent==='—') {
+        el.querySelector('.mc-status').textContent='N/A';
+        el.className='motor-chip';
+      }
+      return;
+    }
+    el.querySelector('.mc-status').textContent=val?'OK':'FAULT';
+    el.className='motor-chip '+(val?'ok':'fault');
+  });
+}
+
+function updateAttributes(a) {
+  if (!a) return;
+  if (a.MainboardID) mainboardID=a.MainboardID;
+  if (a.RemainingMemory) setText('free-mem', fmtBytes(a.RemainingMemory));
+  if (a.DevicesStatus) updateMotors(a.DevicesStatus);
+
+  const grid=document.getElementById('info-grid');
+  const fields={
+    'Name':a.Name,'Machine':a.MachineName,'Brand':a.BrandName,
+    'Firmware':a.FirmwareVersion,'Protocol':a.ProtocolVersion,
+    'Build Volume':a.XYZsize,'IP':a.MainboardIP,'MAC':a.MainboardMAC,
+    'Network':a.NetworkStatus,
+    'Free Memory':a.RemainingMemory?fmtBytes(a.RemainingMemory):undefined,
+    'Camera':a.CameraStatus===1?'✓ Connected':'✗ None',
+    'Capabilities':(a.Capabilities||[]).join(', '),
+  };
+  grid.innerHTML=Object.entries(fields)
+    .filter(([,v])=>v!==undefined&&v!=='')
+    .map(([k,v])=>`<div class="info-kv"><span class="ik">${k}</span><span class="iv">${v}</span></div>`)
+    .join('');
+}
+
+function updateFileList(files) {
+  const list=document.getElementById('file-list');
+  log('FileList: type='+typeof files+' isArr='+Array.isArray(files),'warn');
+  if (!files) { list.innerHTML='<div style="padding:20px;text-align:center;color:var(--muted);font-size:0.78rem">No files</div>'; return; }
+  if (!Array.isArray(files)) {
+    const arr=files.FileList||files.Files||files.files||Object.values(files);
+    if (Array.isArray(arr)) { updateFileList(arr); return; }
+    list.innerHTML='<div style="padding:20px;text-align:center;color:var(--muted);font-size:0.78rem">Unexpected format</div>'; return;
+  }
+  if (!files.length) { list.innerHTML='<div style="padding:20px;text-align:center;color:var(--muted);font-size:0.78rem">No files found</div>'; return; }
+  log('Files: '+files.length+' first='+JSON.stringify(files[0]).substring(0,80),'warn');
+  list.innerHTML=files.map(f=>{
+    const name=(f.Filename||f.filename||f.name||f.FileName||'').split('/').pop();
+    const fp=f.Filename||f.filename||f.name||f.FileName||'';
+    const sz=f.FileSize||f.fileSize||f.size?fmtBytes(f.FileSize||f.fileSize||f.size):'';
+    return `<div class="file-item" onclick="selectFile('${fp.replace(/'/g,"\\'")}')">
+      <div class="file-icon">GCO</div>
+      <div class="file-meta">
+        <div class="file-name">${name||JSON.stringify(f).substring(0,25)}</div>
+        <div class="file-size">${sz}</div>
+      </div>
+      <button class="file-print-btn" onclick="event.stopPropagation();currentFile='${fp.replace(/'/g,"\\'")}';sendCmd(128,{Filename:'${fp.replace(/'/g,"\\'")}',StartLayer:0});showToast('Starting print…')">▶</button>
+    </div>`;
+  }).join('');
+}
+
+function selectFile(fp) {
+  currentFile=fp;
+  document.querySelectorAll('.file-item').forEach(el=>el.classList.remove('selected'));
+  event.currentTarget.classList.add('selected');
+  showToast('Selected: '+fp.split('/').pop());
+}
+
+// ═══════════════════════════════════════════════
+//  UPLOAD
+// ═══════════════════════════════════════════════
+
+// crypto.subtle only works in secure contexts (HTTPS).
+// Fall back to FNV-1a on plain HTTP — printer doesn't validate the hash strictly.
+async function fileHash(bytes) {
+  if (window.crypto?.subtle) {
+    const buf = await crypto.subtle.digest('SHA-256', bytes);
+    return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+  }
+  const arr = new Uint8Array(bytes);
+  let h = 2166136261;
+  for (let i = 0; i < arr.length; i++) h = Math.imul(h ^ arr[i], 16777619) >>> 0;
+  return h.toString(16).padStart(8,'0').repeat(4);
+}
+
+async function uploadFile(input) {
+  const _p=ap(); if (!input.files[0]||!_p||!_p.ip) { showToast('Connect first',true); return; }
+  const printerIP=_p.ip;
+  const file=input.files[0];
+  const bytes=await file.arrayBuffer();
+  const hashHex=await fileHash(bytes);
+  const form=new FormData();
+  form.append('TotalSize',bytes.byteLength);
+  form.append('Uuid',uuid().replace(/-/g,''));
+  form.append('Offset','0'); form.append('Check','1');
+  form.append('S-File-MD5',hashHex);
+  form.append('File',new Blob([bytes],{type:'application/octet-stream'}),file.name);
+  log(`Uploading ${file.name}…`,'info'); showToast('Uploading…');
+  try {
+    await fetch(`http://${printerIP}/uploadFile/upload`,{method:'POST',body:form,mode:'no-cors'});
+    showToast('Upload sent — check Files tab'); sendCmd(256,{});
+  } catch(e) { showToast('Upload error',true); }
+  input.value='';
+}
+
+// ═══════════════════════════════════════════════
+//  LIGHTS & TEMPS
+// ═══════════════════════════════════════════════
+function toggleLight() {
+  lightOn=!lightOn;
+  const val=lightOn?1:0;
+  sendCmd(403,{LightStatus:{SecondLight:val,RgbLight:lightOn?[255,255,255]:[0,0,0]}});
+  const btn=document.getElementById('btn-light');
+  btn.classList.toggle('active',lightOn);
+  btn.querySelector('.btn-icon').textContent=lightOn?'☀':'☾';
+  showToast('Lights '+(lightOn?'on':'off'));
+}
+
+function showTempDialog() {
+  const ex=document.getElementById('temp-dialog');
+  if (ex) { ex.remove(); return; }
+  const d=document.createElement('div');
+  d.id='temp-dialog';
+  d.innerHTML=`
+    <div style="font-size:0.8rem;font-weight:600;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center">
+      Set Temperatures
+      <button onclick="document.getElementById('temp-dialog').remove()" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:1rem">✕</button>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+      <div>
+        <label for="td-nozzle" style="font-size:0.62rem;color:var(--muted);display:block;margin-bottom:5px">Nozzle °C</label>
+        <input id="td-nozzle" type="number" min="0" max="300" value="215"
+          style="width:100%;background:var(--surface);border:1px solid var(--border2);border-radius:5px;
+                 color:var(--text);font-family:var(--mono);padding:8px;font-size:0.9rem;outline:none">
+      </div>
+      <div>
+        <label for="td-bed" style="font-size:0.62rem;color:var(--muted);display:block;margin-bottom:5px">Bed °C</label>
+        <input id="td-bed" type="number" min="0" max="120" value="60"
+          style="width:100%;background:var(--surface);border:1px solid var(--border2);border-radius:5px;
+                 color:var(--text);font-family:var(--mono);padding:8px;font-size:0.9rem;outline:none">
+      </div>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button onclick="applyTemps()" style="flex:1;background:var(--accent);color:#fff;border:none;border-radius:5px;
+        padding:9px;font-size:0.75rem;font-weight:600;cursor:pointer">Apply</button>
+      <button onclick="applyTemps(true)" style="flex:1;background:var(--danger);color:#fff;border:none;border-radius:5px;
+        padding:9px;font-size:0.75rem;font-weight:600;cursor:pointer">Cooldown</button>
+    </div>`;
+  document.body.appendChild(d);
+}
+
+function applyTemps(cooldown=false) {
+  const nozzle=cooldown?0:parseInt(document.getElementById('td-nozzle').value)||0;
+  const bed=cooldown?0:parseInt(document.getElementById('td-bed').value)||0;
+  sendCmd(403,{TempTargetNozzle:nozzle,TempTargetHotbed:bed});
+  showToast(cooldown?'Cooldown started':`Nozzle→${nozzle}° Bed→${bed}°`);
+  document.getElementById('temp-dialog')?.remove();
+}
+
+// ═══════════════════════════════════════════════
+//  MOTION CONTROL
+//  The Centauri Carbon has no SDCP jog command.
+//  We upload a tiny G-code file and immediately start it.
+//  G90 = absolute, G91 = relative, G28 = home
+// ═══════════════════════════════════════════════
+let jogStep = 1; // mm
+
+function setStep(val, btn) {
+  jogStep = val;
+  document.querySelectorAll('.step-tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+async function sendGcode(lines) {
+  const p = ap();
+  if (!p || !p.ip) { showToast('Not connected', true); return; }
+  const gcode = lines.join('\n') + '\n';
+  const blob = new Blob([gcode], { type: 'text/plain' });
+  const bytes = await blob.arrayBuffer();
+  const hashHex = await fileHash(bytes);
+  const fname = `jog_${Date.now()}.gcode`;
+  const form = new FormData();
+  form.append('TotalSize', bytes.byteLength);
+  form.append('Uuid', uuid().replace(/-/g,''));
+  form.append('Offset', '0');
+  form.append('Check', '1');
+  form.append('S-File-MD5', hashHex);
+  form.append('File', new Blob([bytes], {type:'application/octet-stream'}), fname);
+  try {
+    // mode:'no-cors' avoids CORS preflight when served over HTTP from a different origin
+    await fetch(`http://${p.ip}/uploadFile/upload`, {method:'POST', body:form, mode:'no-cors'});
+    sendCmd(128, { Filename: `/local/${fname}`, StartLayer: 0 });
+    log(`Jog: ${lines.join(' | ')}`, 'send');
+  } catch(e) {
+    showToast('Jog error', true);
+    log('Jog error: '+e.message, 'error');
+  }
+}
+
+function jog(axis, dir) {
+  const dist = (jogStep * dir).toFixed(2);
+  const fr = document.getElementById('jog-feedrate')?.value || 3000;
+  // G91 = relative mode, move axis, G90 = back to absolute
+  sendGcode([
+    'G91',
+    `G0 ${axis}${dist} F${fr}`,
+    'G90',
+    'M400'
+  ]);
+  showToast(`Jog ${axis}${dir > 0 ? '+' : ''}${dist}mm`);
+}
+
+function jogHome(axes) {
+  const cmds = {
+    ALL: ['G28','M400'],
+    XY:  ['G28 X Y','M400'],
+    X:   ['G28 X','M400'],
+    Y:   ['G28 Y','M400'],
+    Z:   ['G28 Z','M400'],
+  };
+  if (cmds[axes]) {
+    sendGcode(cmds[axes]);
+    showToast(`Homing ${axes}…`);
+  }
+}
+
+function jogExtrude(dir) {
+  const dist = (jogStep * dir).toFixed(1);
+  const fr = document.getElementById('jog-feedrate')?.value || 3000;
+  sendGcode([
+    'G91',
+    `G1 E${dist} F${Math.min(300, parseInt(fr)/10)}`,
+    'G90',
+    'M400'
+  ]);
+  showToast(`${dir > 0 ? 'Extruding' : 'Retracting'} ${Math.abs(dist)}mm`);
+}
+
+function confirmStop() {
+  if (confirm('Stop the current print?')) sendCmd(130,{});
+}
+
+// ═══════════════════════════════════════════════
+//  HELPERS
+// ═══════════════════════════════════════════════
+function setProgress(pct) {
+  const circ=2*Math.PI*38;
+  document.getElementById('progress-ring-fg').style.strokeDashoffset=circ-(pct/100)*circ;
+}
+function setBar(id,cur,max) {
+  const el=document.getElementById(id);
+  if (el) el.style.width=Math.min(100,(cur/max)*100)+'%';
+}
+function setText(id,val) { const el=document.getElementById(id); if(el)el.textContent=val; }
+function syncSlider(sliderId, valId, val) {
+  const s=document.getElementById(sliderId);
+  const v=document.getElementById(valId);
+  if(s)s.value=val;
+  if(v)v.textContent=Math.round(val)+'%';
+}
+function formatTime(secs) {
+  if(!secs||secs<0) return '—';
+  const h=Math.floor(secs/3600), m=Math.floor((secs%3600)/60), s=secs%60;
+  return [h,m,s].map(x=>String(x).padStart(2,'0')).join(':');
+}
+function fmtBytes(b) {
+  if(b>1073741824) return (b/1073741824).toFixed(1)+' GB';
+  if(b>1048576) return (b/1048576).toFixed(1)+' MB';
+  if(b>1024) return (b/1024).toFixed(0)+' KB';
+  return b+' B';
+}
+function uuid() {
+  return ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g,c=>
+    (c^crypto.getRandomValues(new Uint8Array(1))[0]&15>>c/4).toString(16));
+}
+function setConnStatus(state) {
+  // Update the active printer's tab dot - tabs are the new status indicator
+  const p=ap(); if(p) p.connStatus=state;
+  renderPrinterTabs();
+  // Update topbar state badge color
+  const badge=document.getElementById('state-badge');
+  if(state==='error') { badge.textContent='OFFLINE'; badge.className='state-badge error'; }
+  else if(state==='connecting') { badge.textContent='CONNECTING…'; badge.className='state-badge'; }
+}
+function escapeHtml(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+// LOG
+function log(msg, type='info') {
+  const out=document.getElementById('log-output');
+  const ts=new Date().toTimeString().slice(0,8);
+  const div=document.createElement('div');
+  div.className=`log-entry ${type}`;
+  div.innerHTML=`<span class="ts">${ts}</span><span class="msg">${escapeHtml(msg)}</span>`;
+  out.appendChild(div);
+  if(document.getElementById('auto-scroll').checked) out.scrollTop=out.scrollHeight;
+  while(out.children.length>500) out.removeChild(out.firstChild);
+}
+function clearLog() { document.getElementById('log-output').innerHTML=''; }
+function copyLog() {
+  navigator.clipboard.writeText(Array.from(document.querySelectorAll('.log-entry')).map(e=>e.textContent).join('\n'))
+    .then(()=>showToast('Log copied'));
+}
+
+// TABS
+function switchRTab(name, el) {
+  document.querySelectorAll('.rtab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.rpanel').forEach(p=>p.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('rpanel-'+name).classList.add('active');
+}
+
+// TOAST
+let toastTimer;
+function showToast(msg, isError=false) {
+  const t=document.getElementById('toast');
+  t.textContent=msg;
+  t.className='show'+(isError?' error':'');
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>t.className='',3000);
+}
+
+// ═══════════════════════════════════════════════
+//  CAMERA DRAG RESIZE
+// ═══════════════════════════════════════════════
+(function() {
+  const divider = document.getElementById('drag-divider');
+  if (!divider) return;
+  let dragging = false;
+  let startY = 0;
+  let startH = 0;
+  const MIN_H = 120;
+  const MAX_H = window.innerHeight - 200;
+
+  divider.addEventListener('mousedown', e => {
+    dragging = true;
+    startY = e.clientY;
+    startH = document.getElementById('camera-section').getBoundingClientRect().height;
+    divider.classList.add('dragging');
+    document.body.style.cursor = 'ns-resize';
+    document.body.style.userSelect = 'none';
+    e.preventDefault();
+  });
+  document.addEventListener('mousemove', e => {
+    if (!dragging) return;
+    const delta = e.clientY - startY;
+    const newH = Math.min(MAX_H, Math.max(MIN_H, startH + delta));
+    document.getElementById('camera-section').style.height = newH + 'px';
+  });
+  document.addEventListener('mouseup', () => {
+    if (!dragging) return;
+    dragging = false;
+    divider.classList.remove('dragging');
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+  });
+  // Touch support
+  divider.addEventListener('touchstart', e => {
+    dragging = true;
+    startY = e.touches[0].clientY;
+    startH = document.getElementById('camera-section').getBoundingClientRect().height;
+    e.preventDefault();
+  }, {passive:false});
+  document.addEventListener('touchmove', e => {
+    if (!dragging) return;
+    const delta = e.touches[0].clientY - startY;
+    const newH = Math.min(MAX_H, Math.max(MIN_H, startH + delta));
+    document.getElementById('camera-section').style.height = newH + 'px';
+  });
+  document.addEventListener('touchend', () => { dragging = false; });
+})();
+
+// INIT
+log('Centauri Carbon v2 loaded','info');
+if (!loadPrinters()) {
+  log('Click + to add a printer','info');
+  setTimeout(openAddModal, 300);
+}
+</script>
+</body>
+</html>

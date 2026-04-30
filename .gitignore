@@ -1,0 +1,6 @@
+# Internal deployment notes / personal IPs
+centauri-dashboard-handoff.md
+nginx.conf
+
+# Temp files
+*.bak

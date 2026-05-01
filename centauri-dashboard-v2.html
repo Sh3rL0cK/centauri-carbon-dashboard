@@ -1661,6 +1661,11 @@ function handleMessage(raw) {
 function updateStatus(s) {
   if (!s) return;
 
+  if (s.CurrentStatus !== undefined) {
+    const activePrinter = ap();
+    if (activePrinter) activePrinter.currentStatus = s.CurrentStatus[0] ?? 0;
+  }
+
   // Temps
   if (s.TempOfNozzle!==undefined) {
     const c=s.TempOfNozzle, t=s.TempTargetNozzle??0;
@@ -1941,6 +1946,26 @@ function setStep(val, btn) {
 async function sendGcode(lines) {
   const p = ap();
   if (!p || !p.ip) { showToast('Not connected', true); return; }
+
+  // Wait for printer to be idle (CurrentStatus 0) before uploading.
+  // Printer may still be in post-print state [8] — uploading while busy
+  // silently fails (no-cors hides the error) and CMD 128 gets rejected.
+  if ((p.currentStatus ?? 0) !== 0) {
+    showToast('Waiting for printer to idle…');
+    log(`sendGcode: waiting for idle (status=${p.currentStatus})`, 'info');
+    let waited = 0;
+    while ((p.currentStatus ?? 0) !== 0 && waited < 8000) {
+      await new Promise(r => setTimeout(r, 300));
+      waited += 300;
+    }
+    if ((p.currentStatus ?? 0) !== 0) {
+      showToast('Printer busy — try again', true);
+      return;
+    }
+    // Extra 600ms settling time after the printer reports idle
+    await new Promise(r => setTimeout(r, 600));
+  }
+
   const gcode = lines.join('\n') + '\n';
   const blob = new Blob([gcode], { type: 'text/plain' });
   const bytes = await blob.arrayBuffer();
@@ -1954,8 +1979,9 @@ async function sendGcode(lines) {
   form.append('S-File-MD5', hashHex);
   form.append('File', new Blob([bytes], {type:'application/octet-stream'}), fname);
   try {
-    // mode:'no-cors' avoids CORS preflight when served over HTTP from a different origin
+    // mode:'no-cors' avoids CORS preflight; resolved on HTTP headers not file-write completion
     await fetch(`http://${p.ip}/uploadFile/upload`, {method:'POST', body:form, mode:'no-cors'});
+    await new Promise(r => setTimeout(r, 1000));
     sendCmd(128, { Filename: `/local/${fname}`, StartLayer: 0 });
     log(`Jog: ${lines.join(' | ')}`, 'send');
   } catch(e) {
